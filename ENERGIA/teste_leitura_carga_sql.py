@@ -3,10 +3,10 @@ import pyodbc
 from utilidades import *
 
 
-server = 'SQLDC1VDH0003\\DENERGIA'
+server = ''
 database = 'FGV_ENERGIA_DE'
 username = 'FGV_ENERGIA_DE'
-password = 'teste123'
+password = ''
 # ENCRYPT defaults to yes starting in ODBC Driver 18. It's good to always specify
 # ENCRYPT=yes on the client side to avoid MITM attacks.
 cnxn = pyodbc.connect(
