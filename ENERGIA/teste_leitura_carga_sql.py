@@ -4,8 +4,8 @@ from utilidades import *
 
 
 server = ''
-database = 'FGV_ENERGIA_DE'
-username = 'FGV_ENERGIA_DE'
+database = '_ENERGIA_DE'
+username = '_ENERGIA_DE'
 password = ''
 # ENCRYPT defaults to yes starting in ODBC Driver 18. It's good to always specify
 # ENCRYPT=yes on the client side to avoid MITM attacks.
