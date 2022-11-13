@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
 
-#conectoresdb.conectamysql('edson_2', 'Oracle$22', '192.168.0.158', 'teste')
+
 
 
 
