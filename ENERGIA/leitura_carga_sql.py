@@ -2,10 +2,10 @@ import csv
 import pyodbc
 
 
-server = 'SQLDC1VDH0003\\DENERGIA'
-database = 'FGV_ENERGIA_DE'
-username = 'FGV_ENERGIA_DE'
-password = 'teste123'
+server = \\DENERGIA'
+database = '_ENERGIA_DE'
+username = '_ENERGIA_DE'
+password = ''
 # ENCRYPT defaults to yes starting in ODBC Driver 18. It's good to always specify ENCRYPT=yes on the client side to avoid MITM attacks.
 cnxn = pyodbc.connect(
     'DRIVER={SQL Server};SERVER=' + server + ';PORT=4513;DATABASE=' + database + ';ENCRYPT=no;UID=' + username + ';PWD=' + password)
