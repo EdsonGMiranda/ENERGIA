@@ -1,0 +1,135 @@
+import pyodbc
+import pandas as pd
+import random
+import sqlalchemy as sal
+from sqlalchemy import create_engine, inspect, text
+from urllib.parse import quote_plus
+
+# CRIANDO UM MAILING PARA WEBINAR
+
+## 1. CONECTANDO AO SQL SERVER E AO BANCO DE DADOS
+
+server_1 = 'SQLDC1VPR0002'
+database_1 = 'FGV_DICOM_MDM_ACADEMICO'
+
+# parametros de banco de dados
+server_2 = 'SQLDC1VPR0002'
+database_2 = 'FGV_DICOM_DBM'
+
+# transformando para formato odbc
+parametros_1 = ('DRIVER={SQL Server};SERVER=' + server_1 + ';PORT=4513;DATABASE=' + database_1 + ';ENCRYPT=no;TrustServerCertificate=yes;' + 'Trusted_Connection = "True"')
+
+# transformando para formato odbc
+parametros_2 = ('DRIVER={SQL Server};SERVER=' + server_2 + ';PORT=4513;DATABASE=' + database_2 + ';ENCRYPT=no;TrustServerCertificate=yes;' + 'Trusted_Connection = "True"')
+
+url_db_1 = quote_plus(parametros_1)
+url_db_2 = quote_plus(parametros_2)
+
+# Estabelecendo conexão com o banco de dados
+engine_1 = sal.create_engine('mssql+pyodbc:///?odbc_connect=%s' % url_db_1)
+engine_2 = sal.create_engine('mssql+pyodbc:///?odbc_connect=%s' % url_db_2)
+
+# Estabelecendo a conexão com o banco de dados usando o mecanismo como interface
+con = engine_1.connect()
+inspector_1 = inspect(engine_1)
+
+con2 = engine_2.connect()
+inspector_2 = inspect(engine_2)
+
+# con = pyodbc.connect(conn_str)
+# con2 = pyodbc.connect(conn_str2)
+
+# 2. SELECIONANDO ALUNOS CADASTRO DE INTERESSE
+
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT t.SEQ_BUP_PESSOA , o.DES_OFERTA, o.DES_ESCOLA_UNIDADE FROM " \
+        "BUP_TRILHA_PESSOA_DICOM t WITH (NOLOCK) JOIN BIP_PESSOA_PRODUTO_DICOM prod WITH (NOLOCK) ON t.SEQ_STG_PESSOA " \
+        "= prod.SEQ_BIP_PESSOA JOIN BIP_PESSOA_PRODUTO_OFERTA_DICOM o WITH (NOLOCK) ON prod.SEQ_BIP_PESSOA_PRODUTO = " \
+        "o.SEQ_BIP_PESSOA_PRODUTO  WHERE (o.COD_CURRICULO NOT LIKE '%OCW%') -- CURSOS GRATUITOS (OCW) AND (" \
+        "o.DES_OFERTA LIKE '%LEI%' OR o.DES_OFERTA LIKE '%DIREITO%' OR o.DES_OFERTA LIKE '%JURIDIC%' OR o.DES_OFERTA " \
+        "LIKE '%TRIBUT%') AND (o.DTH_INICIO_OFERTA <= '2020-10-05')"
+
+INTERESSE = pd.read_sql(text(query), con)
+## SELECIONANDO UMA AMOSTRA DE ALUNOS CADASTRO DE INTERESSE
+INTERESSE_SAMPLE = random.sample(list(INTERESSE['SEQ_BUP_PESSOA']), k=int(0.5 * len(INTERESSE['SEQ_BUP_PESSOA'])))
+INTERESSE_SAMPLE = pd.DataFrame(INTERESSE_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+## 2. SELECIONANDO ALUNOS DE CURSOS GRATUITOS (OCW) COM TEMAS RELACIONADOS
+
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT t.SEQ_BUP_PESSOA FROM BUP_TRILHA_PESSOA_DICOM t WITH (" \
+        "NOLOCK) JOIN BIP_PESSOA_PRODUTO_DICOM prod WITH (NOLOCK) ON t.SEQ_STG_PESSOA = prod.SEQ_BIP_PESSOA JOIN " \
+        "BIP_PESSOA_PRODUTO_OFERTA_DICOM o WITH (NOLOCK) ON prod.SEQ_BIP_PESSOA_PRODUTO = o.SEQ_BIP_PESSOA_PRODUTO " \
+        "WHERE (o.COD_CURRICULO LIKE '%OCW%') AND (o.DES_OFERTA LIKE '% LEI %' OR o.DES_OFERTA LIKE '%DIREITO%' OR " \
+        "o.DES_OFERTA LIKE '%JURIDIC%' OR o.DES_OFERTA LIKE '%TRIBUT%')"
+
+OCW = pd.read_sql(text(query), con)
+
+# SELECIONANDO UMA AMOSTRA DOS ALUNOS OCW
+OCW_SAMPLE = random.sample(list(OCW['SEQ_BUP_PESSOA']), k=int(0.2*len(OCW['SEQ_BUP_PESSOA'])))
+OCW_SAMPLE = pd.DataFrame(OCW_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+# Selecionando alunos de eventos com temas relacionados
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT t.SEQ_BUP_PESSOA --, e.* FROM BUP_TRILHA_PESSOA_DICOM t, " \
+        "BIP_PESSOA_PRODUTO_DICOM prod, BIP_PESSOA_PRODUTO_EVENTO_DICOM e (NOLOCK) WHERE (t.SEQ_STG_PESSOA = " \
+        "prod.SEQ_BIP_PESSOA) AND (prod.SEQ_BIP_PESSOA_PRODUTO = e.SEQ_BIP_PESSOA_PRODUTO) AND (e.NOM_EVENTO LIKE '% " \
+        "LEI %' OR e.NOM_EVENTO LIKE '%DIREITO%' OR e.NOM_EVENTO LIKE '%JURIDIC%' OR e.NOM_EVENTO LIKE '%TRIBUT%')"
+
+EVENTOS = pd.read_sql(text(query), con)
+
+# Selecionando uma amostra aleatória dos alunos de eventos
+EVENTOS_SAMPLE = random.sample(list(EVENTOS['SEQ_BUP_PESSOA']), k=int(0.8 * len(EVENTOS['SEQ_BUP_PESSOA'])))
+EVENTOS_SAMPLE = pd.DataFrame(EVENTOS_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+# 4. SELECIONANDO ALUNOS COM CARGOS RELACIONADOS AO WEBINAR
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT emp.SEQ_BUP_PESSOA FROM BUP_PESSOA_EMPREGO_DICOM emp (" \
+        "NOLOCK) WHERE (emp.NOM_EMPRESA NOT LIKE '%FUNDACAO GETULIO VARGAS%' AND emp.NOM_EMPRESA NOT LIKE '%VARGAS%' " \
+        "AND emp.NOM_EMPRESA NOT LIKE '%FGV%' AND emp.NOM_EMPRESA NOT LIKE '%AVON%' AND emp.NOM_EMPRESA NOT LIKE " \
+        "'%BRADESCO%') AND (emp.DES_CARGO LIKE '%ADVOGAD%' OR emp.DES_CARGO LIKE '%JUIZ%' OR emp.DES_CARGO LIKE " \
+        "'%DESEMBARGAD%' OR emp.DES_FUNCAO LIKE '%ADVOGAD%' OR emp.DES_FUNCAO LIKE '%JUIZ%' OR emp.DES_FUNCAO LIKE " \
+        "'%DESEMBARGAD%')"
+
+CARGO = pd.read_sql(text(query), con)
+
+# SELECIONANDO UMA AMOSTRA DOS ALUNOS COM CARGOS RELACIONADOS
+CARGO_SAMPLE = random.sample(list(EVENTOS['SEQ_BUP_PESSOA']), k=int(1 * len(EVENTOS['SEQ_BUP_PESSOA'])))
+CARGO_SAMPLE = pd.DataFrame(CARGO_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+
+# 5. SELECIONANDO ALUNOS COM FORMACAO RELACIONADOS AO WEBINAR
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT fa.SEQ_BUP_PESSOA FROM BUP_PESSOA_FORMACAO_ACADEMICA_DICOM " \
+        "fa (NOLOCK) WHERE (fa.DES_GRANDE_AREA LIKE '%DIREITO%' OR fa.DES_GRANDE_AREA LIKE '%JURIDIC%' OR " \
+        "fa.DES_GRANDE_AREA LIKE '%TRIBUT%')"
+
+FORMACAO = pd.read_sql(text(query), con)
+
+# SELECIONANDO UMA AMOSTRA DOS ALUNOS COM CARGOS RELACIONADOS
+FORMACAO_SAMPLE = random.sample(list(FORMACAO['SEQ_BUP_PESSOA']), k=int(0.5 * len(FORMACAO['SEQ_BUP_PESSOA'])))
+FORMACAO_SAMPLE = pd.DataFrame(FORMACAO_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+
+# 6. SELECIONANDO ALUNOS DE CURSOS PAGOS DA FGV
+
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT T.SEQ_BUP_PESSOA--, NOM_CURSO, STA_SITUACAO FROM " \
+        "BUP_TRILHA_PESSOA_DICOM t INNER JOIN BIP_PESSOA_DICOM bipP ON T.SEQ_STG_PESSOA = BIPP.SEQ_STG_PESSOA INNER " \
+        "JOIN BIP_PESSOA_PRODUTO_DICOM prod ON BIPP.SEQ_BIP_PESSOA = PROD.SEQ_BIP_PESSOA INNER JOIN " \
+        "BIP_PESSOA_PRODUTO_CURSO_DICOM c ON C.SEQ_BIP_PESSOA_PRODUTO = PROD.SEQ_BIP_PESSOA_PRODUTO LEFT OUTER JOIN " \
+        "BUP_PESSOA_EMPREGO_DICOM emp ON EMP.SEQ_BUP_PESSOA = T.SEQ_BUP_PESSOA WHERE(c.FLG_CUMPRIMENTO <> 'S' or " \
+        "c.FLG_CUMPRIMENTO is null) -- N�O PEGAR PESSOAS QUE EST�O CURSANDO ALGUMA DISCIPLINA AND c.COD_CURRICULO NOT "\
+        "LIKE '%OCW%' -- EX-ALUNOS DE CURSOS QUE N�O S�O GRATUITOS AND ((emp.NOM_EMPRESA NOT LIKE '%FUNDACAO GETULIO " \
+        "VARGAS%' AND emp.NOM_EMPRESA NOT LIKE '%VARGAS%' AND emp.NOM_EMPRESA NOT LIKE '%FGV%' and emp.NOM_EMPRESA " \
+        "NOT LIKE '%AVON%' AND emp.NOM_EMPRESA NOT LIKE '%BRADESCO%') or emp.NOM_EMPRESA is null) AND (c.NOM_CURSO " \
+        "LIKE '%DIREITO%' OR c.NOM_CURSO LIKE '%JURIDC%' OR c.NOM_CURSO LIKE '%LEI%' OR c.NOM_CURSO LIKE '%TRIBUT%')"
+
+EXALUNOS = pd.read_sql(text(query), con)
+
+# SELECIONANDO UMA AMOSTRA DOS ALUNOS
+EXALUNOS_SAMPLE = random.sample(list(EXALUNOS['SEQ_BUP_PESSOA']), k=int(1 * len(EXALUNOS['SEQ_BUP_PESSOA'])))
+EXALUNOS_SAMPLE = pd.DataFrame(EXALUNOS_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+# 7. JUNTANDO DATA FRAMES E DEIXANDO SOMENTE DISTINTOS
+BUPS_INICIAL = pd.concat([INTERESSE_SAMPLE, OCW_SAMPLE, EVENTOS_SAMPLE, CARGO_SAMPLE, FORMACAO_SAMPLE, EXALUNOS_SAMPLE])
+BUPS_INICIAL_DISTINTOS = BUPS_INICIAL.drop_duplicates()
+
+print(BUPS_INICIAL_DISTINTOS)
+
+con.close()
+con2.close()
