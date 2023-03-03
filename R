@@ -1,0 +1,64 @@
+import pyodbc
+import pandas as pd
+import random
+import sqlalchemy as sal
+from sqlalchemy import create_engine, inspect, text
+from urllib.parse import quote_plus
+# CRIANDO UM MAILING PARA WEBINAR
+
+## 1. CONECTANDO AO SQL SERVER E AO BANCO DE DADOS
+
+server_1 = 'SQLDC1VPR0002'
+database_1 = 'FGV_DICOM_MDM_ACADEMICO'
+
+
+
+# parametros de banco de dados
+server_2 = 'SQLDC1VPR0002'
+database_2 = 'FGV_DICOM_DBM'
+
+
+# transformando para formato odbc
+parametros_1 = (
+        'DRIVER={SQL Server};SERVER=' + server_1 + ';PORT=4513;DATABASE=' + database_1 + ';ENCRYPT=no;TrustServerCertificate=yes;' + 'Trusted_Connection = "True"')
+
+# transformando para formato odbc
+parametros_2 = (
+        'DRIVER={SQL Server};SERVER=' + server_2 + ';PORT=4513;DATABASE=' + database_2 + ';ENCRYPT=no;TrustServerCertificate=yes;' + 'Trusted_Connection = "True"')
+
+url_db_1 = quote_plus(parametros_1)
+url_db_2 = quote_plus(parametros_2)
+
+# Estabelecendo conexão com o banco de dados
+engine_1 = sal.create_engine('mssql+pyodbc:///?odbc_connect=%s' % url_db_1)
+engine_2 = sal.create_engine('mssql+pyodbc:///?odbc_connect=%s' % url_db_2)
+
+# Estabelecendo a conexão com o banco de dados usando o mecanismo como interface
+con = engine_1.connect()
+inspector = inspect(engine_1)
+
+con2 = engine_2.connect()
+inspector = inspect(engine_2)
+
+
+# con = pyodbc.connect(conn_str)
+# con2 = pyodbc.connect(conn_str2)
+
+## 2. SELECIONANDO ALUNOS CADASTRO DE INTERESSE
+
+query = "SET QUERY_GOVERNOR_COST_LIMIT 0 SELECT DISTINCT t.SEQ_BUP_PESSOA , o.DES_OFERTA, o.DES_ESCOLA_UNIDADE FROM BUP_TRILHA_PESSOA_DICOM t WITH (NOLOCK) JOIN BIP_PESSOA_PRODUTO_DICOM prod WITH (NOLOCK) ON t.SEQ_STG_PESSOA = prod.SEQ_BIP_PESSOA JOIN BIP_PESSOA_PRODUTO_OFERTA_DICOM o WITH (NOLOCK) ON prod.SEQ_BIP_PESSOA_PRODUTO = o.SEQ_BIP_PESSOA_PRODUTO  WHERE (o.COD_CURRICULO NOT LIKE '%OCW%') -- CURSOS GRATUITOS (OCW) AND (o.DES_OFERTA LIKE '%LEI%' OR o.DES_OFERTA LIKE '%DIREITO%' OR o.DES_OFERTA LIKE '%JURIDIC%' OR o.DES_OFERTA LIKE '%TRIBUT%') AND (o.DTH_INICIO_OFERTA <= '2020-10-05')"
+
+
+#INTERESSE = pd.read_sql("SET QUERY_GOVERNOR_COST_LIMIT 0  SELECT DISTINCT t.SEQ_BUP_PESSOA , o.DES_OFERTA, o.DES_ESCOLA_UNIDADE FROM BUP_TRILHA_PESSOA_DICOM t WITH (NOLOCK) JOIN BIP_PESSOA_PRODUTO_DICOM prod WITH (NOLOCK) ON t.SEQ_STG_PESSOA = prod.SEQ_BIP_PESSOA JOIN BIP_PESSOA_PRODUTO_OFERTA_DICOM o WITH (NOLOCK) ON prod.SEQ_BIP_PESSOA_PRODUTO = o.SEQ_BIP_PESSOA_PRODUTO  WHERE (o.COD_CURRICULO NOT LIKE '%OCW%') -- CURSOS GRATUITOS (OCW) AND (o.DES_OFERTA LIKE '%LEI%' OR o.DES_OFERTA LIKE '%DIREITO%' OR o.DES_OFERTA LIKE '%JURIDIC%' OR o.DES_OFERTA LIKE '%TRIBUT%') AND (o.DTH_INICIO_OFERTA <= '2020-10-05')", engine_1)
+
+INTERESSE = pd.read_sql(text(query),con)
+### SELECIONANDO UMA AMOSTRA DE ALUNOS CADASTRO DE INTERESSE
+INTERESSE_SAMPLE = random.sample(list(INTERESSE['SEQ_BUP_PESSOA']), k=int(0.5*len(INTERESSE['SEQ_BUP_PESSOA'])))
+INTERESSE_SAMPLE = pd.DataFrame(INTERESSE_SAMPLE, columns=['SEQ_BUP_PESSOA'])
+
+print(INTERESSE)
+print(INTERESSE_SAMPLE)
+
+
+con.close()
+con2.close()
